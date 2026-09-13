@@ -307,11 +307,23 @@ public static class SqlParser
         {
             text = QuotedString('"', syntax.SupportsBackslashStringEscapes).Or(text);
         }
+        Parser<SqlExpression>? nationalString = null;
+        var stringLiteral = text;
+        if (syntax.SupportsNationalStringLiterals)
+        {
+            nationalString = QuotedString('\'', syntax.SupportsBackslashStringEscapes, isNational: true);
+            if (syntax.SupportsDoubleQuotedStrings)
+            {
+                nationalString = QuotedString('"', syntax.SupportsBackslashStringEscapes, isNational: true)
+                    .Or(nationalString);
+            }
+            stringLiteral = nationalString.Or(text);
+        }
         var boolean = TRUE.Then<SqlExpression>(new LiteralExpression(true))
             .Or(FALSE.Then<SqlExpression>(new LiteralExpression(false)));
         var nullLiteral = NULL.Then<SqlExpression>(new LiteralExpression(null));
 
-        var parameterDefault = text.Or(boolean).Or(nullLiteral).Or(number);
+        var parameterDefault = stringLiteral.Or(boolean).Or(nullLiteral).Or(number);
         var parameter = CreateParameterParser(
             parameterIdentifier,
             parameterDefault,
@@ -439,7 +451,10 @@ public static class SqlParser
             .And(expression)
             .AndSkip(rightParenthesis)
             .Then<SqlExpression>(value => new ExtractExpression(value.Item1, value.Item2));
-        var interval = INTERVAL.SkipAnd(text.Or(number).Or(parameter))
+        var intervalValue = syntax.SupportsExpressionIntervalValues
+            ? expression
+            : text.Or(number).Or(parameter);
+        var interval = INTERVAL.SkipAnd(intervalValue)
             .And(simpleIdentifier)
             .Then<SqlExpression>(value => new IntervalExpression(value.Item1, value.Item2));
 
@@ -487,13 +502,15 @@ public static class SqlParser
                 .Or(TRAILING.Then(TrimDirection.Trailing))
                 .Or(BOTH.Then(TrimDirection.Both))
                 .Optional())
-            .And(stringLiteralWithIntroducer.Or(expression).Optional())
-            .AndSkip(FROM)
+            .And(expression.AndSkip(FROM)
+                .Or(stringLiteralWithIntroducer.AndSkip(FROM))
+                .Then<SqlExpression?>(value => value)
+                .Or(FROM.Then<SqlExpression?>(_ => null)))
             .And(expression)
             .AndSkip(rightParenthesis)
             .Then<SqlExpression>(value => new TrimExpression(
                 value.Item2.HasValue ? value.Item2.Value : TrimDirection.Both,
-                value.Item3.HasValue ? value.Item3.Value : null,
+                value.Item3,
                 value.Item4));
         var trim = trimSpecial.Or(function);
         var term = tryCast
@@ -514,7 +531,7 @@ public static class SqlParser
             .Or(defaultExpression)
             .Or(typedLiteral)
             .Or(hexLiteral)
-            .Or(text)
+            .Or(stringLiteral)
             .Or(number)
             .Or(column);
 
@@ -718,11 +735,19 @@ public static class SqlParser
                 null));
         windowSpecification.Parser = namedWindowSpecification.Or(anonymousWindowSpecification);
 
-        var stringAlias = text.Then(value => new SqlIdentifier(((LiteralExpression)value).Value?.ToString() ?? string.Empty));
+        var stringAlias = CreateStringAliasParser(text);
         var alias = AS.SkipAnd(simpleIdentifier.Or(stringAlias)).Or(nonKeywordIdentifier.Or(stringAlias));
         var tableAlias = syntax.SupportsTableAliasAs
             ? alias
             : nonKeywordIdentifier.Or(stringAlias);
+        var selectAlias = alias;
+        if (syntax.SupportsNationalStringAliases && nationalString is not null)
+        {
+            selectAlias = AS.Optional()
+                .SkipAnd(CreateStringAliasParser(nationalString))
+                .Or(alias);
+        }
+        var selectItem = expression.And(selectAlias.Optional())
         var tableHintIdentifier = simpleIdentifier.Or(INDEX.Then(new SqlIdentifier("INDEX")));
         var tableHint = tableHintIdentifier
             .And(Between(leftParenthesis, Separated(comma, expression), rightParenthesis).Optional())
@@ -2429,7 +2454,10 @@ public static class SqlParser
             .Then(parts => new SqlIdentifier(string.Concat(parts), true));
     }
 
-    private static Parser<SqlExpression> QuotedString(char quote, bool supportsBackslashEscapes)
+    private static Parser<SqlIdentifier> CreateStringAliasParser(Parser<SqlExpression> parser) =>
+        parser.Then(value => new SqlIdentifier(((LiteralExpression)value).Value?.ToString() ?? string.Empty));
+
+    private static Parser<SqlExpression> QuotedString(char quote, bool supportsBackslashEscapes, bool isNational = false)
     {
         var quoteText = quote.ToString();
         var parts = new List<Parser<string>>
@@ -2448,10 +2476,10 @@ public static class SqlParser
 
         parts.Add(Literals.NoneOf(excluded).Then(value => value.ToString()));
         return Between(
-                Terms.Char(quote),
+                Terms.Text(isNational ? "N" + quoteText : quoteText, caseInsensitive: true),
                 ZeroOrMany(OneOf(parts.ToArray())),
                 Terms.Char(quote))
-            .Then<SqlExpression>(value => new LiteralExpression(string.Concat(value)));
+            .Then<SqlExpression>(value => new LiteralExpression(string.Concat(value)) { IsNational = isNational });
     }
 
     private static char DecodeEscapedCharacter(char value) => value switch
