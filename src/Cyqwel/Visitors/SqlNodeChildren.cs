@@ -131,7 +131,11 @@ internal static partial class SqlNodeChildren
             case TableName value:
                 return value.Parts;
             case NamedTable value:
-                return value.Alias is null ? [value.Name] : [value.Name, value.Alias];
+                return value.Alias is null
+                    ? value.Hints is null ? [value.Name] : [value.Name, .. value.Hints]
+                    : value.Hints is null ? [value.Name, value.Alias] : [value.Name, value.Alias, .. value.Hints];
+            case WithTableHint value:
+                return value.Arguments is null ? [value.Name] : [value.Name, .. value.Arguments];
             case DerivedTable value:
                 return [value.Query, value.Alias];
             case JoinTable value:

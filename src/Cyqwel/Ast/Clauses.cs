@@ -16,11 +16,21 @@ public sealed record TableName(IReadOnlyList<SqlIdentifier> Parts) : SqlNode
 
 public abstract record TableSource : SqlNode;
 
-public sealed record NamedTable(TableName Name, SqlIdentifier? Alias = null) : TableSource
+public sealed record NamedTable(TableName Name, SqlIdentifier? Alias = null, IReadOnlyList<WithTableHint>? Hints = null) : TableSource
 {
-    public NamedTable(string name, string? alias = null)
-        : this(new TableName(name), alias is null ? null : new SqlIdentifier(alias))
+    public NamedTable(string name, string? alias = null, IReadOnlyList<WithTableHint>? hints = null)
+        : this(new TableName(name), alias is null ? null : new SqlIdentifier(alias), hints)
     {
+    }
+}
+
+public sealed record WithTableHint(SqlIdentifier Name, IReadOnlyList<SqlExpression>? Arguments = null) : SqlNode
+{
+    public WithTableHint(string name, params SqlExpression[] arguments)
+        : this(new SqlIdentifier(name), arguments.Length == 0 ? null : arguments)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(arguments);
     }
 }
 

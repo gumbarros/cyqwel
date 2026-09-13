@@ -76,6 +76,7 @@ public abstract partial class SqlRewriter
             SqlDataType value => VisitDataType(value),
             TableName value => VisitTableName(value),
             NamedTable value => VisitNamedTable(value),
+            WithTableHint value => VisitWithTableHint(value),
             DerivedTable value => VisitDerivedTable(value),
             JoinTable value => VisitJoin(value),
             SelectItem value => VisitSelectItem(value),
@@ -473,9 +474,20 @@ public abstract partial class SqlRewriter
     {
         var name = Visit(node.Name);
         var alias = VisitOptional(node.Alias);
+        var hints = VisitOptionalList(node.Hints);
         return ReferenceEquals(name, node.Name) && ReferenceEquals(alias, node.Alias)
+            && ReferenceEquals(hints, node.Hints)
             ? node
-            : node with { Name = name, Alias = alias };
+            : node with { Name = name, Alias = alias, Hints = hints };
+    }
+
+    protected virtual SqlNode VisitWithTableHint(WithTableHint node)
+    {
+        var name = Visit(node.Name);
+        var arguments = VisitOptionalList(node.Arguments);
+        return ReferenceEquals(name, node.Name) && ReferenceEquals(arguments, node.Arguments)
+            ? node
+            : node with { Name = name, Arguments = arguments };
     }
 
     protected virtual SqlNode VisitDerivedTable(DerivedTable node)

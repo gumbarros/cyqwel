@@ -73,6 +73,8 @@ public class SqlDialect
 
     public virtual bool SupportsTableAliasAs => true;
 
+    public virtual bool SupportsTableHints => false;
+
     public virtual bool SupportsExplain => ParserOptions.SupportsExplainOptions;
 
     public virtual bool SupportsParenthesizedSetOperands => true;
@@ -257,6 +259,7 @@ public static class SqlDialects
 
     private sealed class TSqlDialect() : SqlDialect("tsql", '[', ']', SqlLimitStyle.Top)
     {
+        public override bool SupportsTableHints => true;
         public override bool SupportsStoredProcedures => true;
         public override bool SupportsAnonymousProceduralBlocks => true;
         internal override SqlGenerator.RoutineRenderer RoutineRenderer =>
@@ -270,6 +273,7 @@ public static class SqlDialects
             IdentifierQuotes = SqlIdentifierQuoteStyle.DoubleQuote | SqlIdentifierQuoteStyle.Brackets,
             ParameterStyles = SqlParameterStyle.AtNamed,
             SupportsTop = true,
+            SupportsTableHints = true,
             SupportsLimit = false,
             SupportsOffsetOnly = false,
             SupportsOffsetFetch = true,
@@ -784,6 +788,7 @@ public sealed class SqlDialectBuilder
                     : baseDialect.RoutineGrammar;
         public override bool RequiresOrderByForOffset => baseDialect.RequiresOrderByForOffset;
         public override bool SupportsTableAliasAs => baseDialect.SupportsTableAliasAs;
+        public override bool SupportsTableHints => baseDialect.SupportsTableHints;
         public override bool UsesSqlSecurityForViews => baseDialect.UsesSqlSecurityForViews;
         public override SqlConcatenationStyle ConcatenationStyle => baseDialect.ConcatenationStyle;
         public override SqlDialectParserOptions ParserOptions { get; } =

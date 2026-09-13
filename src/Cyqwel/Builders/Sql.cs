@@ -10,6 +10,8 @@ public static class Sql
 {
     public static ColumnExpression Col(string name) => new(name);
 
+    public static ColumnExpression Id(string name) => new(name);
+
     public static StarExpression Star() => new();
 
     public static StarExpression Star(string qualifier)
@@ -203,6 +205,15 @@ public static class Sql
     }
 
     public static NamedTable Table(string name, string? alias = null) => new(name, alias);
+
+    public static NamedTable Table(string name, IReadOnlyList<WithTableHint> hints) =>
+        new(name, hints: hints);
+
+    public static NamedTable Table(string name, string? alias, IReadOnlyList<WithTableHint>? hints) =>
+        new(name, alias, hints);
+
+    public static WithTableHint TableHint(string name, params SqlExpression[] arguments) =>
+        new(name, arguments);
 
     public static DerivedTable Derived(SqlQuery query, string alias) =>
         new(query, new SqlIdentifier(alias));

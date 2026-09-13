@@ -601,7 +601,6 @@ public sealed partial class SqlGenerator
         if (!_dialect.SupportsReturning)
         {
             Unsupported($"{_dialect.Name} does not support RETURNING.");
-            if (_options.UnsupportedBehavior == UnsupportedSqlBehavior.Ignore) return;
         }
 
         ClauseBreak();
@@ -613,7 +612,6 @@ public sealed partial class SqlGenerator
             if (!_dialect.SupportsReturningInto)
             {
                 Unsupported($"{_dialect.Name} does not support RETURNING INTO.");
-                if (_options.UnsupportedBehavior == UnsupportedSqlBehavior.Ignore) return;
             }
 
             Space();
@@ -705,14 +703,45 @@ public sealed partial class SqlGenerator
     private void WriteNamedTable(NamedTable table)
     {
         WriteTableName(table.Name);
-        if (table.Alias is null) return;
-        Space();
-        if (_dialect.SupportsTableAliasAs)
+        if (table.Alias is not null)
         {
-            Keyword("AS");
             Space();
+            if (_dialect.SupportsTableAliasAs)
+            {
+                Keyword("AS");
+                Space();
+            }
+            WriteIdentifier(table.Alias);
         }
-        WriteIdentifier(table.Alias);
+
+        if (table.Hints is not { Count: > 0 }) return;
+        if (!_dialect.SupportsTableHints)
+        {
+            Unsupported($"{_dialect.Name} does not support table hints.");
+        }
+
+        Space();
+        Keyword("WITH");
+        Space();
+        _builder.Append('(');
+        WriteSeparated(table.Hints, WriteTableHint);
+        _builder.Append(')');
+    }
+
+    private void WriteTableHint(WithTableHint hint)
+    {
+        if (hint.Name.IsQuoted)
+        {
+            WriteIdentifier(hint.Name);
+        }
+        else
+        {
+            Keyword(hint.Name.Value);
+        }
+        if (hint.Arguments is not { Count: > 0 }) return;
+        _builder.Append('(');
+        WriteSeparated(hint.Arguments, expression => WriteExpression(expression));
+        _builder.Append(')');
     }
 
     private void WriteTableName(TableName table) => WriteSeparated(table.Parts, WriteIdentifier, ".");

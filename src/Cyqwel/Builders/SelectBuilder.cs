@@ -27,6 +27,15 @@ public sealed class SelectBuilder
         return this;
     }
 
+    public SelectBuilder From(string table, string? alias, IReadOnlyList<WithTableHint>? hints)
+    {
+        _statement = _statement with { From = new NamedTable(table, alias, hints) };
+        return this;
+    }
+
+    public SelectBuilder From(string table, IReadOnlyList<WithTableHint> hints) =>
+        From(table, alias: null, hints);
+
     public SelectBuilder From(TableSource source)
     {
         _statement = _statement with { From = source ?? throw new ArgumentNullException(nameof(source)) };

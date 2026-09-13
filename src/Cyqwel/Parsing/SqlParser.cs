@@ -723,6 +723,24 @@ public static class SqlParser
         var tableAlias = syntax.SupportsTableAliasAs
             ? alias
             : nonKeywordIdentifier.Or(stringAlias);
+        var tableHintIdentifier = simpleIdentifier.Or(INDEX.Then(new SqlIdentifier("INDEX")));
+        var tableHint = tableHintIdentifier
+            .And(Between(leftParenthesis, Separated(comma, expression), rightParenthesis).Optional())
+            .Then(value => new WithTableHint(
+                value.Item1,
+                value.Item2.HasValue ? value.Item2.Value : null));
+        Parser<IReadOnlyList<WithTableHint>?> tableHints;
+        if (syntax.SupportsTableHints)
+        {
+            tableHints = WITH.SkipAnd(Between(leftParenthesis, Separated(comma, tableHint), rightParenthesis))
+                .Then(value => (IReadOnlyList<WithTableHint>?)value)
+                .Optional()
+                .Then(value => value.HasValue ? value.Value : null);
+        }
+        else
+        {
+            tableHints = Always<IReadOnlyList<WithTableHint>?>(null);
+        }
         var selectItem = expression.And(alias.Optional())
             .Then(value => new SelectItem(
                 value.Item1,
@@ -733,9 +751,14 @@ public static class SqlParser
             .And(tableAlias)
             .Then<TableSource>(value => new DerivedTable(value.Item1, value.Item2));
         var namedTable = tableName.And(tableAlias.Optional())
+            .Then(value => (
+                Name: value.Item1,
+                Alias: value.Item2.HasValue ? (SqlIdentifier?)value.Item2.Value : null))
+            .And(tableHints)
             .Then<TableSource>(value => new NamedTable(
-                value.Item1,
-                value.Item2.HasValue ? (SqlIdentifier?)value.Item2.Value : null));
+                value.Item1.Name,
+                value.Item1.Alias,
+                value.Item2));
         var tablePrimary = derivedTable.Or(namedTable);
 
         var joinKind = LEFT.AndSkip(OUTER.Optional()).AndSkip(JOIN).Then(JoinKind.Left)

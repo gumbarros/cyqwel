@@ -76,6 +76,7 @@ public abstract partial class SqlVisitor
             case SqlDataType value: VisitDataType(value); break;
             case TableName value: VisitTableName(value); break;
             case NamedTable value: VisitNamedTable(value); break;
+            case WithTableHint value: VisitWithTableHint(value); break;
             case DerivedTable value: VisitDerivedTable(value); break;
             case JoinTable value: VisitJoin(value); break;
             case SelectItem value: VisitSelectItem(value); break;
@@ -155,6 +156,7 @@ public abstract partial class SqlVisitor
     protected virtual void VisitDataType(SqlDataType node) => DefaultVisit(node);
     protected virtual void VisitTableName(TableName node) => DefaultVisit(node);
     protected virtual void VisitNamedTable(NamedTable node) => DefaultVisit(node);
+    protected virtual void VisitWithTableHint(WithTableHint node) => DefaultVisit(node);
     protected virtual void VisitDerivedTable(DerivedTable node) => DefaultVisit(node);
     protected virtual void VisitJoin(JoinTable node) => DefaultVisit(node);
     protected virtual void VisitSelectItem(SelectItem node) => DefaultVisit(node);

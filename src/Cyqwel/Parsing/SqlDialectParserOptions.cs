@@ -139,6 +139,8 @@ public sealed record SqlDialectParserOptions
 
     public bool SupportsTableAliasAs { get; init; } = true;
 
+    public bool SupportsTableHints { get; init; }
+
     public bool SupportsExplainOptions { get; init; }
 
     public bool SupportsCreateViewSecurity { get; init; }
