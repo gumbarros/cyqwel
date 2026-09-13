@@ -747,7 +747,11 @@ public static class SqlParser
                 .SkipAnd(CreateStringAliasParser(nationalString))
                 .Or(alias);
         }
+
         var selectItem = expression.And(selectAlias.Optional())
+            .Then(value => new SelectItem(
+                value.Item1,
+                value.Item2.HasValue ? (SqlIdentifier?)value.Item2.Value : null));
         var tableHintIdentifier = simpleIdentifier.Or(INDEX.Then(new SqlIdentifier("INDEX")));
         var tableHint = tableHintIdentifier
             .And(Between(leftParenthesis, Separated(comma, expression), rightParenthesis).Optional())
@@ -766,10 +770,6 @@ public static class SqlParser
         {
             tableHints = Always<IReadOnlyList<WithTableHint>?>(null);
         }
-        var selectItem = expression.And(alias.Optional())
-            .Then(value => new SelectItem(
-                value.Item1,
-                value.Item2.HasValue ? (SqlIdentifier?)value.Item2.Value : null));
         var projections = Separated<char, SelectItem>(comma, selectItem);
 
         var derivedTable = Between(leftParenthesis, query, rightParenthesis)
