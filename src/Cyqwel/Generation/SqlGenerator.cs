@@ -718,6 +718,7 @@ public sealed partial class SqlGenerator
         if (!_dialect.SupportsTableHints)
         {
             Unsupported($"{_dialect.Name} does not support table hints.");
+            if (_options.UnsupportedBehavior == UnsupportedSqlBehavior.Ignore) return;
         }
 
         Space();
